@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能中医病历助手</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #18bc9c;
+            --bg: #f4f7f6;
+            --box-bg: #ffffff;
+            --text: #333;
+            --border: #e0e0e0;
+            --warning: #e74c3c;
+            --info: #3498db;
+        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 0; display: flex; flex-direction: column; min-height: 100vh; }
+        header { background-color: var(--primary); color: white; padding: 0.3rem 2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+	header h1 { font-size: 1.2rem; margin: 0; }
+        .settings-btn { background: none; border: 1px solid white; color: white; padding: 0.5rem 1rem; cursor: pointer; border-radius: 4px; font-size: 1rem; transition: all 0.3s; }
+        .settings-btn:hover { background: white; color: var(--primary); }
+        
+        /* 使用说明书样式 */
+        .guide-container { margin: 1rem 2rem 0; background: #e8f4f8; border-left: 5px solid var(--info); border-radius: 4px; }
+        details { padding: 0.8rem 1rem; }
+        summary { font-weight: bold; cursor: pointer; color: var(--primary); outline: none; font-size: 1.1rem; }
+        .guide-content { font-size: 0.95rem; line-height: 1.6; margin-top: 1rem; color: #444; border-top: 1px dashed #b2d7e8; padding-top: 1rem; }
+        .guide-content h4 { margin: 0.5rem 0 0.2rem 0; color: var(--primary); }
+        .guide-content ul { margin-top: 0; padding-left: 1.5rem; }
+        .guide-content p { margin: 0.3rem 0; }
+
+        main { display: flex; flex: 1; padding: 1rem 2rem 2rem; gap: 2rem; overflow: visible; }
+        .panel { flex: 1; background: var(--box-bg); border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; padding: 1.5rem; border: 1px solid var(--border); }
+        h2 { margin-top: 0; font-size: 1.2rem; color: var(--primary); }
+        
+        /* 输入区 */
+        #rawInput { flex: 1; width: 100%; padding: 1rem; border: 1px solid var(--border); border-radius: 4px; resize: none; font-size: 1rem; font-family: inherit; box-sizing: border-box; margin-bottom: 1rem; line-height: 1.5; }
+        #rawInput:focus { outline: none; border-color: var(--secondary); box-shadow: 0 0 5px rgba(24, 188, 156, 0.3); }
+        
+        button.action-btn { background-color: var(--secondary); color: white; border: none; padding: 1rem; font-size: 1.1rem; border-radius: 4px; cursor: pointer; font-weight: bold; transition: background 0.3s; }
+        button.action-btn:hover { background-color: #128f76; }
+        button.action-btn:disabled { background-color: #95a5a6; cursor: not-allowed; }
+        #status { font-size: 0.9rem; color: #7f8c8d; margin-top: 0.5rem; text-align: center; height: 1.2rem; }
+
+	/* 新增：一键清空按钮的专属样式 */
+        button.btn-reset { background-color: #95a5a6; }
+        button.btn-reset:hover { background-color: #7f8c8d; }
+
+        /* 四宫格输出区 */
+        .output-grid { display: flex; flex-direction: column; gap: 1rem; flex: 1; overflow-y: auto; padding-right: 5px; }
+        
+/* --- 优化后的输出区样式 --- */
+.soap-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px; /* 标签栏与文本框的间距 */
+    margin-bottom: 1rem;
+}
+
+/* 专门的操作标题栏 */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 4px;
+}
+        
+
+.soap-section textarea {
+    min-height: 80px;
+    height: auto;
+    padding: 1rem; /* 回归正常的均匀内边距 */
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    resize: none;
+    font-size: 1rem;
+    font-family: inherit;
+    box-sizing: border-box;
+    line-height: 1.5;
+    overflow-y: hidden;
+}
+        
+.section-label {
+    font-weight: bold;
+    color: var(--primary);
+    font-size: 1.1rem;
+}
+
+.copy-btn {
+    background: #ecf0f1;
+    border: 1px solid #bdc3c7;
+    color: var(--primary);
+    padding: 0.3rem 0.8rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+        
+.copy-btn:hover { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* Modal Settings (弹窗) */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; padding: 2rem; border-radius: 8px; width: 700px; max-width: 90%; max-height: 90vh; overflow-y: auto; position: relative; }
+        .modal-content label { display: block; margin: 1rem 0 0.5rem; font-weight: bold; color: var(--primary); }
+        .modal-content input[type="password"] { width: 100%; padding: 0.8rem; border: 1px solid var(--border); box-sizing: border-box; border-radius: 4px;}
+        .modal-content textarea { width: 100%; height: 120px; padding: 0.8rem; border: 1px solid var(--border); box-sizing: border-box; resize: vertical; border-radius: 4px; font-family: inherit;}
+        
+        .backup-section { background: #fdf2e9; padding: 1.2rem; border-radius: 4px; margin-top: 1.5rem; border: 1px dashed #e67e22; }
+        .backup-section p { margin-top: 0; font-size: 0.95rem; color: #d35400; line-height: 1.5;}
+        .backup-btns { display: flex; gap: 1rem; margin-top: 1rem;}
+        .btn-export { background: #e67e22; color: white; padding: 0.6rem 1rem; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;}
+        .btn-import { background: #2980b9; color: white; padding: 0.6rem 1rem; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;}
+
+        .modal-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1.5rem; }
+        .modal-actions button { padding: 0.8rem 1.5rem; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 1rem;}
+        .btn-cancel { background: var(--warning); color: white; }
+        .btn-save { background: var(--secondary); color: white; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>👩‍⚕️ 智能中医病历助手</h1>
+        <button class="settings-btn" onclick="openSettings()">⚙️ 系统配置 & 私人字典</button>
+</header>
+
+<div class="guide-container">
+    <details> <summary>📖 使用指南 (点击展开/折叠)</summary>
+        <div class="guide-content">
+            <h4>1. 极速写病历 (如何使用)</h4>
+            <ul>
+                <li>在左侧输入框中，用您最习惯的语言（大白话、拼音缩写、中英夹杂）记录病人的症状体征。</li>
+                <li><strong>🚨 隐私红线：</strong> 严禁输入患者真实姓名 (Name) 及出生日期 (DOB)。</li>
+                <li>点击【✨ 智能生成】，AI 会瞬间将白话翻译为专业医学英文，并自动切分到右侧的 S/O/A/P 四个文本框中。</li>
+            </ul>
+            <h4>2. 完美适配 Unified Practice (如何复制)</h4>
+            <ul>
+                <li>右侧的文本框是<strong>可编辑</strong>的。如果 AI 翻译的某个词不合心意，您可以直接点击文本框进行手动修改。</li>
+                <li>确认无误后，依次点击每个框右上角的【📋 复制】按钮，然后直接粘贴到 Unified Practice 对应的格子中即可。</li>
+            </ul>
+            <h4>3. 打造您的专属助手 (私人字典)</h4>
+            <ul>
+                <li>如果 AI 老是用错某个术语，请点击右上角【⚙️ 系统配置】。</li>
+                <li>在“我的私人词典”中写下您的规矩（例如：<code>遇到“上火”统一翻译为 Heat syndrome</code>）。AI 以后每次都会严格遵守您的个人习惯。</li>
+            </ul>
+        </div>
+    </details>
+</div>
+
+<main>
+    <div class="panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2 style="margin: 0;">✏️ 门诊速记输入</h2>
+            <select id="modelSelect" onchange="localStorage.setItem('preferredModel', this.value)" style="padding: 0.4rem 0.8rem; border-radius: 4px; border: 1px solid var(--border); font-size: 0.95rem; background: var(--bg); color: var(--primary); cursor: pointer; outline: none; font-weight: bold;">
+                <option value="auto">🤖 自动优选 (最稳妥)</option>
+                <option value="gemini-2.5-flash">⚡ Gemini 2.5 Flash (主力平衡)</option>
+                <option value="gemini-3-flash-preview">🧠 Gemini 3 Flash (最强逻辑)</option>
+                <option value="gemini-2.0-flash">🚀 Gemini 2.0 Flash (极速响应)</option>
+            </select>
+        </div>
+        <textarea id="rawInput" placeholder="在此输入门诊速记...&#10;例如：&#10;m 45y, 失眠伴随偏头痛3个月。之前查出过 chronic migraine。无心悸，未见盗汗。舌尖红，苔薄黄，脉弦细。辨证：肝郁化火。针刺：印堂，HT7，LR3。留针30min，照TDP。"></textarea>
+	<div style="display: flex; gap: 1rem;">
+    	    <button id="generateBtn" class="action-btn" style="flex: 2;" onclick="generateSOAP()">✨ 智能生成</button>
+    	    <button id="resetBtn" class="action-btn btn-reset" style="flex: 1;" onclick="resetAll()">🗑️ 一键清空</button>
+	</div>
+	<div id="status"></div>
+    </div>
+
+<div class="panel">
+    <h2 style="margin-bottom: 1rem; line-height: 1.4;">
+        📄 标准英文输出 (可直接修改) 
+        <span id="usedModel" style="display: block; font-size: 0.85rem; color: var(--secondary); font-weight: normal; margin-top: 5px;"></span>
+    </h2>
+ 
+<div class="output-grid">
+    <div class="soap-section">
+       <div class="section-header">
+            <span class="section-label">S (Subjective)</span>
+            <button class="copy-btn" onclick="copySection(this, 'outS')">📋 复制</button>
+        </div>
+        <textarea id="outS" oninput="adjustTextareaHeight('outS')" placeholder="Subjective..."></textarea>
+    </div>
+
+    <div class="soap-section">
+        <div class="section-header">
+            <span class="section-label">O (Objective)</span>
+            <button class="copy-btn" onclick="copySection(this, 'outO')">📋 复制</button>
+        </div>
+        <textarea id="outO" oninput="adjustTextareaHeight('outO')" placeholder="Objective..."></textarea>
+    </div>
+
+    <div class="soap-section">
+        <div class="section-header">
+            <span class="section-label">A (Assessment)</span>
+            <button class="copy-btn" onclick="copySection(this, 'outA')">📋 复制</button>
+        </div>
+        <textarea id="outA" oninput="adjustTextareaHeight('outA')" placeholder="Assessment..."></textarea>
+    </div>
+
+    <div class="soap-section">
+        <div class="section-header">
+            <span class="section-label">P (Plan)</span>
+            <button class="copy-btn" onclick="copySection(this, 'outP')">📋 复制</button>
+        </div>
+        <textarea id="outP" oninput="adjustTextareaHeight('outP')" placeholder="Plan..."></textarea>
+    </div>
+  </div>
+</div>
+</main>
+
+<div id="settingsModal" class="modal">
+    <div class="modal-content">
+        <h2 style="margin-top:0; color: var(--primary);">⚙️ 系统配置与 AI 调教</h2>
+        
+        <label>🔑 1. Gemini API Key (本地保存，绝不上传)</label>
+        <input type="password" id="apiKeyInput" placeholder="请粘贴 Google AI Studio 申请的 API Key...">
+        
+        <label>🧠 2. 底层 System Prompt (核心运转逻辑，建议勿动)</label>
+        <textarea id="promptInput" style="height: 180px; font-size: 0.9rem;"></textarea>
+        
+        <label>📚 3. 医生的私人词典 / 习惯规则库</label>
+        <textarea id="rulesInput" placeholder="在这里输入您的翻译习惯，例如：&#10;1. 遇到 '平补平泻' 统一翻译为 'Even method'&#10;2. P部分必须使用项目符号 (Bullet points)"></textarea>
+        
+        <div class="backup-section">
+            <p><strong>⚠️ 数据防丢提醒：</strong> 您的 API 密钥和私人字典仅保存在当前浏览器的缓存中。如果清理浏览器垃圾，数据将会丢失。请定期导出备份文件！</p>
+            <div class="backup-btns">
+                <button class="btn-export" onclick="exportSettings()">📥 导出配置备份 (.json)</button>
+                <button class="btn-import" onclick="document.getElementById('importFile').click()">📂 导入配置恢复</button>
+                <input type="file" id="importFile" style="display: none;" accept=".json" onchange="importSettings(event)">
+            </div>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="closeSettings()">取消更改</button>
+            <button class="btn-save" onclick="saveSettings()">💾 保存并生效</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// 新增：自动调整高度的逻辑
+function adjustTextareaHeight(id) {
+    const el = document.getElementById(id);
+    if (el) {
+        el.style.height = 'auto';
+        const newHeight = el.scrollHeight > 80 ? el.scrollHeight : 80;
+        el.style.height = newHeight + 'px'; // 确保使用了计算后的 newHeight
+    }
+}
+    // 【Prompt】
+    const defaultPrompt = `# Role: Senior TCM Physician Scribe
+Translate clinical shorthand and raw inputs into a highly professional, clinical-standard English SOAP note.
+
+# Clinical Tone & Style:
+- Use concise, objective medical phrasing (e.g., "Pt presents with...", "Pt reports...", "Pt denies...").
+- Eliminate narrative fluff. Use standard medical abbreviations (e.g., CC, Hx, Dx, Sx, ROM) appropriately.
+
+# Strict Formatting Rules (API Optimized):
+1. OUTPUT STRUCTURE: You MUST output exactly four sections beginning with [S], [O], [A], [P].
+2. ZERO PADDING: Do NOT output any conversational text, intro, or outro before or after the SOAP blocks. 
+3. INTEGRITY: If information for a section is missing from the input, output "N/A". NEVER hallucinate data, symptoms, or interventions.
+
+# SOAP Section Guidelines:
+[S] Subjective: 
+- Include Chief Complaint (CC), onset, and pain severity if provided.
+- ALL Western Medical Diagnoses or conditions MUST be placed here and framed strictly as patient-reported history or external referrals (e.g., "Pt reports MD diagnosis of [Condition]" or "Reported PMHx of [Disease]").
+- Translate negative symptoms strictly as "Pt denies [Symptom]".
+
+[O] Objective: 
+- Include physical exam findings, Range of Motion (ROM), or orthopedic tests if provided.
+- Tongue and Pulse descriptions MUST adhere strictly to WHO/Bensky standardized TCM terminology.
+
+[A] Assessment: 
+- TCM Pattern Diagnosis ONLY (e.g., "Liver Qi Stagnation with Blood Stasis"). 
+- NEVER generate or infer any Western medical diagnoses in this section.
+
+[P] Plan: 
+- Use clinical action verbs and format concisely.
+- Include: 1) Patient position (e.g., prone/supine), 2) Acupuncture points administered (specify bilateral/left/right), 3) Needle retention time.
+- Note any adjunct therapies (e.g., Cupping, Moxibustion, Tuina) and immediate patient response post-treatment if provided.`;
+
+    window.onload = function() {
+        if (!localStorage.getItem('systemPrompt')) {
+            localStorage.setItem('systemPrompt', defaultPrompt);
+        }
+	if (localStorage.getItem('preferredModel')) {
+            document.getElementById('modelSelect').value = localStorage.getItem('preferredModel');
+        }
+        loadSettingsToUI();
+    };
+
+    function loadSettingsToUI() {
+        document.getElementById('promptInput').value = localStorage.getItem('systemPrompt') || defaultPrompt;
+        document.getElementById('apiKeyInput').value = localStorage.getItem('apiKey') || '';
+        document.getElementById('rulesInput').value = localStorage.getItem('customRules') || '';
+    }
+
+    function openSettings() { loadSettingsToUI(); document.getElementById('settingsModal').style.display = 'flex'; }
+    function closeSettings() { document.getElementById('settingsModal').style.display = 'none'; }
+    
+    function saveSettings() {
+        localStorage.setItem('apiKey', document.getElementById('apiKeyInput').value.trim());
+        localStorage.setItem('systemPrompt', document.getElementById('promptInput').value.trim());
+        localStorage.setItem('customRules', document.getElementById('rulesInput').value.trim());
+        closeSettings();
+        alert('✅ 配置已安全保存在本地浏览器！');
+    }
+
+    // 导入导出设置功能
+    function exportSettings() {
+        const settingsData = { apiKey: document.getElementById('apiKeyInput').value.trim(), systemPrompt: document.getElementById('promptInput').value.trim(), customRules: document.getElementById('rulesInput').value.trim() };
+        const dataStr = JSON.stringify(settingsData, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = `SOAP_Backup_${new Date().toISOString().slice(0,10)}.json`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    }
+
+    function importSettings(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const importedData = JSON.parse(e.target.result);
+                if (importedData.apiKey !== undefined) document.getElementById('apiKeyInput').value = importedData.apiKey;
+                if (importedData.systemPrompt !== undefined) document.getElementById('promptInput').value = importedData.systemPrompt;
+                if (importedData.customRules !== undefined) document.getElementById('rulesInput').value = importedData.customRules;
+                event.target.value = ''; 
+                alert("🎉 配置文件导入成功！请点击右下角【保存并生效】。");
+            } catch (error) { alert("❌ 文件格式错误，请导入正确的 .json 文件！"); }
+        };
+        reader.readAsText(file);
+    }
+
+    // 调用 API 核心函数
+
+async function callGeminiAPI(instructionText) {
+        const apiKey = localStorage.getItem('apiKey');
+        if (!apiKey) {
+            alert("请先配置 API Key！");
+            openSettings();
+            return null;
+        }
+
+        // 1. 获取你在下拉菜单里选择的模型
+        const selectedModel = document.getElementById('modelSelect').value;
+        let modelsToTry = [];
+
+        // 2. 智能排兵布阵 (最优设计版)
+        if (selectedModel === 'auto') {
+            // 自动模式：速度优先，最快的 2.0 打头阵，稳健的 2.5 兜底
+            modelsToTry = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-3-flash-preview'];
+        } else {
+            // 手动模式：绝对锁定！只试这一个，失败了坚决不偷偷切换其他模型
+            modelsToTry = [selectedModel];
+        }
+
+        // 3. 核心循环，加入 15 秒超时控制，告别“无限等待”
+        for (let i = 0; i < modelsToTry.length; i++) {
+            const currentModel = modelsToTry[i];
+            const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${apiKey}`;
+            
+            try {
+                console.log(`正在尝试使用模型: ${currentModel}...`);
+                
+                // 设置 15 秒超时中断
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    signal: controller.signal,
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: instructionText }] }],
+                        generationConfig: { 
+                            temperature: 0.0,
+                        }
+                    })
+                });
+
+                clearTimeout(timeoutId); // 成功返回就取消超时
+                const data = await response.json();
+
+                if (response.ok) {
+                    console.log(`✅ ${currentModel} 调用成功！`);
+                    document.getElementById('usedModel').innerText = `[⚡ 当前驱动: ${currentModel}]`;
+                    return data.candidates[0].content.parts[0].text;
+                }
+
+                if ((response.status === 429 || response.status === 404) && i < modelsToTry.length - 1) {
+                    console.warn(`⚠️ ${currentModel} 拥堵或不可用，立即切换备选...`);
+                    continue; 
+                }
+
+                throw new Error(data.error?.message || `API 错误 (状态码: ${response.status})`);
+
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    console.warn(`⏱️ ${currentModel} 响应超时 (超过15秒)，切换下一个...`);
+                    if (i === modelsToTry.length - 1) {
+                        alert("所有模型响应超时，请检查网络或稍后再试。");
+                        return null;
+                    }
+                    continue;
+                }
+
+                if (i === modelsToTry.length - 1) {
+                    console.error("所有模型调用均失败:", error);
+                    alert("发生错误: " + error.message);
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
+    // 生成与智能分拣
+    async function generateSOAP() {
+        const rawInput = document.getElementById('rawInput').value.trim();
+        if (!rawInput) return alert("请输入需要转换的门诊记录！");
+
+        const btn = document.getElementById('generateBtn');
+        const status = document.getElementById('status');
+        btn.disabled = true; status.innerText = "⏳ AI 正在思考与排版，请稍候...";
+	document.getElementById('usedModel').innerText = ""; // 新增：开始生成时清空模型显示
+        
+        // 预清空内容并提示
+        const boxes = ['outS', 'outO', 'outA', 'outP'];
+        boxes.forEach(id => document.getElementById(id).value = "正在生成中...");
+
+        const systemPrompt = localStorage.getItem('systemPrompt');
+        const customRules = localStorage.getItem('customRules');
+        const fullInstruction = `[System Instructions]\n${systemPrompt}\n\n[Custom Translation Rules]\n${customRules}\n\n[User Raw Notes]\nPlease format the following into a SOAP note:\n${rawInput}`;
+
+        const result = await callGeminiAPI(fullInstruction);
+        
+        if (result) {
+            try {
+                // 1. 终极兼容提取法：精确抓取标签后面的内容
+                const matchS = result.match(/\[S\]([\s\S]*?)(?=\[O\]|\[A\]|\[P\]|$)/i);
+                const matchO = result.match(/\[O\]([\s\S]*?)(?=\[A\]|\[P\]|$)/i);
+                const matchA = result.match(/\[A\]([\s\S]*?)(?=\[P\]|$)/i);
+                const matchP = result.match(/\[P\]([\s\S]*?)$/i);
+
+                // 2. 兜底保护：如果 AI 完全没按指令输出这四个标签，直接展示原始文本
+                if (!matchS && !matchO && !matchA && !matchP) {
+                    document.getElementById('outS').value = "【⚠️ 格式解析失败，AI 原始输出如下，请检查】\n\n" + result;
+                    document.getElementById('outO').value = "";
+                    document.getElementById('outA').value = "";
+                    document.getElementById('outP').value = "";
+                    return; // 提前结束
+                }
+
+                // 3. 智能清理工具：自动抹掉开头多余的 "Subjective:" 或 "Objective:" 等废话
+                const cleanText = (match) => {
+                    if (!match) return "N/A";
+                    // 只提取捕获组1的内容，并去掉开头的冗余标题和空格
+                    return match[1].replace(/^[\s\*:-]*(Subjective|Objective|Assessment|Plan)?[\s\*:-]*/i, '').trim() || "N/A";
+                };
+
+                // 4. 安全赋值到文本框
+                document.getElementById('outS').value = cleanText(matchS);
+                document.getElementById('outO').value = cleanText(matchO);
+                document.getElementById('outA').value = cleanText(matchA);
+                document.getElementById('outP').value = cleanText(matchP);
+
+            } catch (e) {
+                // 极端情况备用方案
+                document.getElementById('outS').value = "【代码解析发生异常】\n" + result;
+                document.getElementById('outO').value = "";
+                document.getElementById('outA').value = "";
+                document.getElementById('outP').value = "";
+            }
+        } else {
+            boxes.forEach(id => document.getElementById(id).value = "");
+        }
+        
+        btn.disabled = false; status.innerText = "";
+
+	boxes.forEach(id => adjustTextareaHeight(id));
+
+	// 建议在 generateSOAP 函数的最末尾（boxes.forEach 之后）加入：
+	status.innerText = "✅ 生成完毕！";
+	setTimeout(() => { status.innerText = ""; }, 3000); // 3秒后自动消失
+    }
+
+    // 独立复制功能 (带绿色护眼动画反馈)
+    function copySection(btnElement, textareaId) {
+        const output = document.getElementById(textareaId);
+        if (!output.value || output.value === "正在生成中...") return alert("当前无有效内容可复制！");
+        
+        output.select();
+        document.execCommand('copy');
+        window.getSelection().removeAllRanges(); // 复制完取消文本的高亮选中状态
+        
+        // 按钮变绿动画反馈
+        const originalText = btnElement.innerText;
+        btnElement.innerText = "✅ 已复制";
+        btnElement.style.backgroundColor = "#18bc9c";
+        btnElement.style.color = "white";
+        btnElement.style.borderColor = "#18bc9c";
+        
+        // 1.5秒后恢复原样
+        setTimeout(() => {
+            btnElement.innerText = "📋 复制";
+            btnElement.style.backgroundColor = "#ecf0f1";
+            btnElement.style.color = "#2c3e50";
+            btnElement.style.borderColor = "#bdc3c7";
+        }, 1500);
+    }
+
+// 🗑️ 一键清空所有面板功能 (带防误删确认)
+    function resetAll() {
+        // 防误触保护：如果输入框有内容，弹窗确认
+        if (document.getElementById('rawInput').value.trim() !== "") {
+            const confirmReset = confirm("⚠️ 确定要清空当前病历的所有内容吗？此操作无法恢复。");
+            if (!confirmReset) return; 
+        }
+
+        // 1. 清空左侧输入框
+        document.getElementById('rawInput').value = "";
+        
+        // 2. 清空右侧四个输出框
+        const boxes = ['outS', 'outO', 'outA', 'outP'];
+        boxes.forEach(id => {
+            const el = document.getElementById(id);
+            el.value = "";
+            // 清空后强制重置文本框高度回到 80px
+            adjustTextareaHeight(id);
+        });
+
+        // 3. 清空状态栏和模型提示
+        document.getElementById('status').innerText = "";
+        document.getElementById('usedModel').innerText = "";
+    }
+
+</script>
+
+<footer style="margin-top: -20px; padding-bottom: 1rem;">
+    <div style="height: 1px; width: 60%; margin: 0 auto 0.5rem; background: linear-gradient(to right, transparent, #e0e0e0, transparent);"></div>
+    <div style="text-align: center; color: #bdc3c7; font-size: 0.75rem; letter-spacing: 0.5px; font-weight: bold;">
+        Built with ❤️ by Xinluo | 2026
+    </div>
+</footer>
+
+</body>
+</html>
