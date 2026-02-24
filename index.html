@@ -543,6 +543,46 @@ async function callGeminiAPI(instructionText) {
         document.getElementById('usedModel').innerText = "";
     }
 
+	/* === 📱 手机屏幕适配代码 (响应式布局) === */
+        @media (max-width: 768px) {
+            /* 1. 核心：让主界面的左右两块变成上下排列 */
+            main {
+                flex-direction: column;
+                padding: 1rem 1rem 2rem; /* 减小手机边缘空白 */
+                gap: 1.5rem; /* 上下输入/输出框之间的间距 */
+            }
+            
+            /* 2. 顶部导航栏：让标题和设置按钮上下居中排列，防挤压 */
+            header {
+                flex-direction: column;
+                gap: 10px;
+                padding: 1rem;
+                text-align: center;
+            }
+
+            /* 3. 使用说明书：调整边距适应窄屏 */
+            .guide-container {
+                margin: 1rem 1rem 0;
+            }
+
+            /* 4. 按钮组优化：允许一排装不下的按钮自动换行到底部 */
+            .panel > div[style*="display: flex"] {
+                flex-wrap: wrap; 
+            }
+            
+            /* 5. 强行让部分按钮在手机上占满宽度，方便手指点击 */
+            button.action-btn {
+                flex: 1 1 100% !important; /* 让操作按钮在手机上占满一行 */
+                margin-bottom: 5px;
+            }
+
+            /* 6. 设置弹窗适配：让弹窗面板在手机上更宽 */
+            .modal-content {
+                width: 95%;
+                padding: 1.5rem;
+            }
+        }
+
 </script>
 
 <footer style="margin-top: -20px; padding-bottom: 1rem;">
